@@ -1,0 +1,10 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+data/synthetic/decisions.csv
+
+docs/
+IMPLEMENTATION.md
