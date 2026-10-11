@@ -1,4 +1,4 @@
-"""JKN CLAIMGUARD TWIN: verifier workbench (Streamlit).
+"""ClaimWise verifier workbench (Streamlit).
 
 Alur: Antrian Klaim (skrining 100% klaim pra-pembayaran, triage by risk)
  -> Review Kasus (side-by-side narasi vs kode + flag ber-bukti + what-if)
@@ -26,7 +26,7 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 DATA_PATH = os.path.join(ROOT, "data", "synthetic", "cases.jsonl")
 DECISIONS_PATH = os.path.join(ROOT, "data", "synthetic", "decisions.csv")
 
-st.set_page_config(page_title="JKN ClaimGuard Twin", layout="wide")
+st.set_page_config(page_title="ClaimWise", layout="wide")
 
 
 @st.cache_data
@@ -93,8 +93,8 @@ if "selected" not in st.session_state:
     st.session_state["selected"] = triage.iloc[0]["case_id"]
 
 # ---------------- sidebar ----------------
-st.sidebar.title("ClaimGuard Twin")
-st.sidebar.caption("Tim Dampit | Healthkathon 2026")
+st.sidebar.title("ClaimWise")
+st.sidebar.caption("Healthkathon 2026")
 page = st.sidebar.radio("Navigasi", ["Antrian Klaim", "Review Kasus", "Jejak Audit"], key="nav")
 st.sidebar.divider()
 st.sidebar.caption(f"Review engine: {ext_name}")

@@ -1,74 +1,87 @@
-# Verifikasi Klaim INA-CBGs Berbasis Narasi Klinis 🏥
+# ClaimWise
 
-**Tim Dampit — BPJS Healthkathon 2026**
+**Verifikasi klaim INA-CBGs berbasis narasi klinis**
 
-Platform validasi pengkodean medis otomatis: membandingkan **narasi klinis tak-terstruktur**
-(resume medis, CPPT — berbahasa Indonesia) dengan **kode klaim ICD-10/ICD-9-CM** yang diajukan
-faskes, **sebelum pembayaran disetujui**. Fokus: **upcoding** & **unbundling**.
+ClaimWise adalah prototipe untuk membantu verifikator meninjau kesesuaian antara narasi klinis berbahasa Indonesia dan kode diagnosis/prosedur pada klaim. Fokus MVP ini adalah indikasi **upcoding** dan **unbundling** sebelum pembayaran. Sistem menyajikan temuan sebagai bahan tinjauan; keputusan akhir tetap pada verifikator.
 
-## Kenapa ini addressing the problem
+## Tujuan
 
-- Fraud JKN itu masalah triliunan rupiah (BPJS: kerugian fraud ~Rp6 T per Jul 2026; KPK: kasus
-  Rp34 M markup + phantom billing; upcoding disebut eksplisit sebagai modus).
-- Verifikasi klaim hari ini: rule-based pada field terstruktur + audit manual (sampling) →
-  **buta terhadap narasi teks bebas**, tempat kecurangan terselubung disembunyikan.
-- Arah Healthkathon 2026: *problem-first*, AI menyaring klaim/pola berisiko lebih cepat,
-  **keputusan akhir tetap manusia** → dashboard human-in-the-loop.
+Informasi klinis yang relevan dapat berada di narasi bebas seperti resume medis atau catatan CPPT, sementara pemeriksaan klaim sering dimulai dari field yang terstruktur. ClaimWise mendemonstrasikan bagaimana ekstraksi fakta dari narasi dapat membantu menyoroti klaim yang perlu ditinjau lebih lanjut.
 
-## Novelty (klaim yang defensible)
+Proyek ini merupakan prototipe evaluasi, bukan sistem adjudikasi atau deteksi fraud produksi.
 
-1. Validasi terhadap **narasi klinis unstructured Bahasa Indonesia** (blind spot rule-based).
-2. **Spesifik INA-CBGs**: logika severity level & bundling ala casemix Indonesia
-   (literatur/produk existing kebanyakan US-centric: DRG/CPT).
-3. **Pre-payment**: dicek sebelum bayar, bukan audit post-hoc.
-4. **Explainable + human-in-the-loop by design**, bukan black-box scorer.
+## Alur MVP
 
-**Scope jujur:** mencakup upcoding & unbundling (pasien real, kode dimanipulasi).
-Tidak mencakup phantom billing / pasien fiktif / pemalsuan identitas.
-
-## Struktur
-
-```
-healthkathon-dampit/
-├── data/
-│   ├── generator.py      # bikin data sintetis: narasi klinis ID + klaim + label fraud (seeded)
-│   └── synthetic/        # cases.jsonl hasil generate
-├── pipeline/
-│   ├── extractor.py      # LLM/NLP: ekstrak diagnosis, prosedur, sinyal severity dari narasi
-│   └── detector.py       # deteksi upcoding/unbundling + risk score 0-100 + evidence
-├── dashboard/
-│   └── app.py            # Streamlit: side-by-side narasi vs kode klaim (human-in-the-loop)
-├── eval/
-│   └── evaluate.py       # precision/recall/F1 di atas data sintetis berlabel
-└── requirements.txt
+```mermaid
+flowchart LR
+    A[Kasus sintetis: narasi dan klaim] --> B[Antrian: skrining cepat dengan mock extractor]
+    B --> C[Verifikator memilih kasus]
+    C --> D[Ekstraksi narasi: Gemini opsional, mock sebagai fallback]
+    D --> E[Detektor berbasis aturan]
+    E --> F[Skor risiko, flag, dan bukti]
+    F --> G[Simulasi dampak koreksi]
+    F --> H[Keputusan verifikator]
+    G --> H
+    H --> I[Jejak audit CSV lokal]
 ```
 
-## Quickstart
+Antrian menggunakan mock extractor untuk memproses seluruh kasus dengan cepat. Saat satu kasus dibuka, extractor review memakai Gemini jika `GEMINI_API_KEY` tersedia; jika tidak, aplikasi memakai mock extractor berbasis kata kunci. Detector membandingkan hasil ekstraksi dengan klaim menggunakan aturan sederhana. Dashboard menampilkan narasi, klaim, bukti kutipan, skor risiko, dan simulasi koreksi. Verifikator memilih keputusan dan mencatatnya ke CSV lokal.
+
+## Fitur yang Tersedia
+
+- Generator kasus sintetis dengan seed dan label ground truth untuk evaluasi.
+- Mock extractor untuk demo offline serta Gemini extractor opsional.
+- Deteksi berbasis aturan untuk upcoding, diagnosis yang tidak didukung narasi, dan sebagian pola unbundling.
+- Dashboard untuk antrian, review kasus, dan jejak keputusan verifikator.
+- Simulasi perubahan severity/prosedur dan estimasi tarif ilustratif.
+- Evaluasi precision, recall, F1, dan recall per tipe fraud pada data sintetis.
+
+## Batasan dan Penggunaan
+
+- Dataset saat ini sintetis. Jangan memasukkan data pasien atau klaim nyata.
+- Kode, aturan bundling, dan detektor disederhanakan untuk prototipe; belum menjadi knowledge base resmi INA-CBGs.
+- Tarif pada simulasi hanya ilustrasi, bukan tarif resmi atau dasar pembayaran.
+- Skor risiko adalah alat prioritisasi, bukan probabilitas fraud atau keputusan otomatis.
+- MVP belum terintegrasi dengan BPJS, SIMRS, SATUSEHAT, VClaim, atau sistem klaim lainnya.
+- Jejak keputusan disimpan ke CSV lokal; belum cocok untuk audit produksi atau penyimpanan persisten di hosting.
+
+## Menjalankan Secara Lokal
+
+Gunakan Python 3.10 atau lebih baru dari direktori root proyek.
 
 ```bash
-pip install -r requirements.txt
-
-# 1. Generate data sintetis (200 kasus, 30% fraud)
+python -m pip install -r requirements.txt
 python data/generator.py --n 200 --fraud-rate 0.3 --seed 42
-
-# 2. Jalankan evaluasi detektor (mock extractor, tanpa API key)
-python eval/evaluate.py --n 200
-
-# 3. Jalankan dashboard verifikator
+python eval/evaluate.py --n 200 --seed 123 --extractor mock
 streamlit run dashboard/app.py
 ```
 
-Pakai LLM beneran (opsional, free tier): set `GEMINI_API_KEY`, lalu extractor otomatis
-pakai `GeminiExtractor` alih-alih `MockExtractor`. Tanpa API key semuanya tetap jalan
-dalam mock mode — demo tidak mati.
+Dashboard tersedia di alamat lokal yang dicetak oleh Streamlit, biasanya `http://localhost:8501`.
 
-## Roadmap singkat
+### Menggunakan Gemini
 
-- [x] Scaffold + synthetic data + detector + dashboard + eval
-- [x] What-if simulator (digital twin lite) + panel di dashboard
-- [x] IMPLEMENTATION.md + demo script
-- [ ] Ganti MockExtractor → GeminiExtractor, ukur selisih akurasinya (`--extractor gemini`)
-- [ ] Tambah `evidence_spans` (kutip kalimat sumber per fakta)
-- [ ] Perkaya knowledge base bundling INA-CBGs (dari regulasi Kemenkes)
-- [ ] Tambah kasus fraud adversarial (narasi dibuat "mendukung" klaim palsu)
-- [ ] Proposal + pitch deck (problem-first!)
+Gemini bersifat opsional. Atur environment variable `GEMINI_API_KEY` sebelum menjalankan aplikasi atau evaluasi dengan `--extractor gemini`. Simpan kunci API secara lokal atau melalui secret manager; jangan commit kunci ke repository. Tanpa kunci, aplikasi menggunakan mock extractor.
+
+## Struktur Repository
+
+```text
+data/
+  generator.py       Membuat kasus klinis sintetis dan klaim berlabel
+  synthetic/         Dataset demo dalam format JSONL
+pipeline/
+  extractor.py       Ekstraksi fakta dengan mock atau Gemini
+  detector.py        Aturan deteksi dan skor risiko
+  tariff.py          Tarif ilustratif untuk simulasi
+  whatif.py          Simulasi dampak koreksi klaim
+dashboard/
+  app.py             Antrean, review kasus, keputusan, dan audit
+eval/
+  evaluate.py        Evaluasi detektor pada data sintetis
+requirements.txt     Dependency Python
+```
+
+## Evaluasi dan Tahap Berikutnya
+
+Jalankan `python eval/evaluate.py --n 200 --seed 123 --extractor mock` untuk mereproduksi evaluasi baseline pada data sintetis. Hasil ini mengukur perilaku prototipe pada generator kasus yang tersedia, bukan performa pada data klinis nyata.
+
+Langkah lanjutan yang direncanakan mencakup pengukuran mock dibanding Gemini, pengayaan aturan INA-CBGs dari sumber resmi, pengujian kasus adversarial, serta penyimpanan keputusan yang persisten.
